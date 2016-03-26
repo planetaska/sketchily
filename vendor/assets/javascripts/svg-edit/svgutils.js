@@ -11,9 +11,10 @@
 
 // Dependencies:
 // 1) jQuery
-// 2) browser.js
-// 3) svgtransformlist.js
-// 4) units.js
+// 2) pathseg.js
+// 3) browser.js
+// 4) svgtransformlist.js
+// 5) units.js
 
 (function(undef) {'use strict';
 
@@ -124,7 +125,7 @@ svgedit.utilities.encode64 = function(input) {
 // Converts a string from base64
 svgedit.utilities.decode64 = function(input) {
 	if(window.atob) {
-        return window.atob(input);
+        return svgedit.utilities.decodeUTF8(window.atob(input));
     }
 	var output = '';
 	var chr1, chr2, chr3 = '';
@@ -157,67 +158,16 @@ svgedit.utilities.decode64 = function(input) {
 		enc1 = enc2 = enc3 = enc4 = '';
 
 	} while (i < input.length);
-	return unescape(output);
+    return svgedit.utilities.decodeUTF8(output);
 };
 
-// based on http://phpjs.org/functions/utf8_encode
+svgedit.utilities.decodeUTF8 = function (argString) {
+    return decodeURIComponent(escape(argString));
+};
+
 // codedread:does not seem to work with webkit-based browsers on OSX // Brettz9: please test again as function upgraded
 svgedit.utilities.encodeUTF8 = function (argString) {
-	//return unescape(encodeURIComponent(input)); //may or may not work
-  if (argString === null || argString === undef) {
-    return '';
-  }
-
-  // .replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  var string = String(argString);
-  var utftext = '',
-    start, end, stringl = 0;
-
-  start = end = 0;
-  stringl = string.length;
-  var n;
-  for (n = 0; n < stringl; n++) {
-    var c1 = string.charCodeAt(n);
-    var enc = null;
-
-    if (c1 < 128) {
-      end++;
-    } else if (c1 > 127 && c1 < 2048) {
-      enc = String.fromCharCode(
-        (c1 >> 6) | 192, (c1 & 63) | 128
-      );
-    } else if ((c1 & 0xF800) != 0xD800) {
-      enc = String.fromCharCode(
-        (c1 >> 12) | 224, ((c1 >> 6) & 63) | 128, (c1 & 63) | 128
-      );
-    } else {
-      // surrogate pairs
-      if ((c1 & 0xFC00) != 0xD800) {
-        throw new RangeError('Unmatched trail surrogate at ' + n);
-      }
-      var c2 = string.charCodeAt(++n);
-      if ((c2 & 0xFC00) != 0xDC00) {
-        throw new RangeError('Unmatched lead surrogate at ' + (n - 1));
-      }
-      c1 = ((c1 & 0x3FF) << 10) + (c2 & 0x3FF) + 0x10000;
-      enc = String.fromCharCode(
-        (c1 >> 18) | 240, ((c1 >> 12) & 63) | 128, ((c1 >> 6) & 63) | 128, (c1 & 63) | 128
-      );
-    }
-    if (enc !== null) {
-      if (end > start) {
-        utftext += string.slice(start, end);
-      }
-      utftext += enc;
-      start = end = n + 1;
-    }
-  }
-
-  if (end > start) {
-    utftext += string.slice(start, stringl);
-  }
-
-  return utftext;
+  return unescape(encodeURIComponent(argString));
 };
 
 // Function: svgedit.utilities.convertToXMLReferences
@@ -526,14 +476,14 @@ svgedit.utilities.getBBox = function(elem) {
 			ret = selected.getBBox();
 			selected.textContent = '';
 		} else {
-			try { ret = selected.getBBox();} catch(e){}
+			if (selected.getBBox) { ret = selected.getBBox(); }
 		}
 		break;
 	case 'path':
 		if(!svgedit.browser.supportsPathBBox()) {
 			ret = svgedit.utilities.getPathBBox(selected);
 		} else {
-			try { ret = selected.getBBox();} catch(e2){}
+			if (selected.getBBox) { ret = selected.getBBox(); }
 		}
 		break;
 	case 'g':
@@ -559,18 +509,14 @@ svgedit.utilities.getBBox = function(elem) {
 				ret = bb;
 			//}
 		} else if(~visElems_arr.indexOf(elname)) {
-			try { ret = selected.getBBox();}
-			catch(e3) {
+			if (selected) { ret = selected.getBBox(); }
+			else {
 				// Check if element is child of a foreignObject
 				var fo = $(selected).closest('foreignObject');
-				if(fo.length) {
-					try {
+				if (fo.length) {
+					if (fo[0].getBBox) {
 						ret = fo[0].getBBox();
-					} catch(e4) {
-						ret = null;
 					}
-				} else {
-					ret = null;
 				}
 			}
 		}
@@ -653,11 +599,6 @@ if (svgedit.browser.supportsSelectors()) {
 // suspendLength - Optional integer of milliseconds to suspend redraw
 // unitCheck - Boolean to indicate the need to use svgedit.units.setUnitAttr
 svgedit.utilities.assignAttributes = function(node, attrs, suspendLength, unitCheck) {
-	if(!suspendLength) {suspendLength = 0;}
-	// Opera has a problem with suspendRedraw() apparently
-	var handle = null;
-	if (!svgedit.browser.isOpera()) {svgroot_.suspendRedraw(suspendLength);}
-
 	var i;
 	for (i in attrs) {
 		var ns = (i.substr(0,4) === 'xml:' ? NS.XML :
@@ -671,7 +612,6 @@ svgedit.utilities.assignAttributes = function(node, attrs, suspendLength, unitCh
 			svgedit.units.setUnitAttr(node, i, attrs[i]);
 		}
 	}
-	if (!svgedit.browser.isOpera()) {svgroot_.unsuspendRedraw(handle);}
 };
 
 // Function: cleanupElement
@@ -680,7 +620,6 @@ svgedit.utilities.assignAttributes = function(node, attrs, suspendLength, unitCh
 // Parameters:
 // element - DOM element to clean up
 svgedit.utilities.cleanupElement = function(element) {
-	var handle = svgroot_.suspendRedraw(60);
 	var defaults = {
 		'fill-opacity':1,
 		'stop-opacity':1,
@@ -702,8 +641,6 @@ svgedit.utilities.cleanupElement = function(element) {
 			element.removeAttribute(attr);
 		}
 	}
-
-	svgroot_.unsuspendRedraw(handle);
 };
 
 // Function: snapToGrid

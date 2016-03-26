@@ -1527,6 +1527,7 @@ TODOS
 					$('#group_opacity').val(opac_perc);
 					$('#opac_slider').slider('option', 'value', opac_perc);
 					$('#elem_id').val(selectedElement.id);
+					$('#elem_class').val(selectedElement.getAttribute("class"));
 				}
 
 				updateToolButtonState();
@@ -2991,7 +2992,7 @@ TODOS
 					return false;
 				}
 
-				if (attr !== 'id') {
+				if (attr !== 'id' && attr !== 'class') {
 					if (isNaN(val)) {
 						val = svgCanvas.convertToNum(attr, val);
 					} else if (curConfig.baseUnit !== 'px') {
@@ -4767,6 +4768,7 @@ TODOS
 						case 'paste_in_place':
 							svgCanvas.pasteElements('in_place');
 							break;
+						case 'group':
 						case 'group_elements':
 							svgCanvas.groupSelectedElements();
 							break;
@@ -4986,7 +4988,7 @@ TODOS
 				updateCanvas(true);
 //			});
 
-			//	var revnums = "svg-editor.js ($Rev: 2875 $) ";
+			//	var revnums = "svg-editor.js ($Rev$) ";
 			//	revnums += svgCanvas.getVersion();
 			//	$('#copyright')[0].setAttribute('title', revnums);
 

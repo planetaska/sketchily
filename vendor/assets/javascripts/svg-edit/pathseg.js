@@ -4,17 +4,26 @@
 // This is a drop-in replacement for the SVGPathSeg and SVGPathSegList APIs that were removed from
 // SVG2 (https://lists.w3.org/Archives/Public/www-svg/2015Jun/0044.html), including the latest spec
 // changes which were implemented in Firefox 43 and Chrome 46.
+//
+// Example API usage:
+//   var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+//   var moveToSeg = path.createSVGPathSegMovetoRel(10, 10);
+//   var lineToSeg = path.createSVGPathSegLinetoRel(100, 100);
+//   path.pathSegList.appendItem(moveToSeg);
+//   path.pathSegList.appendItem(lineToSeg);
+//   console.log(path.getAttribute('d')); // m 10 10 l 100 100
+//   moveToSeg.x += 200;
+//   moveToSeg.y += 200;
+//   console.log(path.getAttribute('d')); // m 210 210 l 100 100
 
 (function() { "use strict";
-    if (!("SVGPathSeg" in window)) {
+    if (!window.SVGPathSeg) {
         // Spec: http://www.w3.org/TR/SVG11/single-page.html#paths-InterfaceSVGPathSeg
         window.SVGPathSeg = function(type, typeAsLetter, owningPathSegList) {
             this.pathSegType = type;
             this.pathSegTypeAsLetter = typeAsLetter;
             this._owningPathSegList = owningPathSegList;
         }
-
-        SVGPathSeg.prototype.classname = "SVGPathSeg";
 
         SVGPathSeg.PATHSEG_UNKNOWN = 0;
         SVGPathSeg.PATHSEG_CLOSEPATH = 1;
@@ -334,7 +343,7 @@
         SVGPathElement.prototype.createSVGPathSegCurvetoQuadraticSmoothRel = function(x, y) { return new SVGPathSegCurvetoQuadraticSmoothRel(undefined, x, y); }
     }
 
-    if (!("SVGPathSegList" in window)) {
+    if (!window.SVGPathSegList) {
         // Spec: http://www.w3.org/TR/SVG11/single-page.html#paths-InterfaceSVGPathSegList
         window.SVGPathSegList = function(pathElement) {
             this._pathElement = pathElement;
@@ -346,30 +355,12 @@
             this._pathElementMutationObserver.observe(this._pathElement, this._mutationObserverConfig);
         }
 
-        SVGPathSegList.prototype.classname = "SVGPathSegList";
-
         Object.defineProperty(SVGPathSegList.prototype, "numberOfItems", {
             get: function() {
                 this._checkPathSynchronizedToList();
                 return this._list.length;
-            },
-            enumerable: true
+            }
         });
-
-        // Add the pathSegList accessors to SVGPathElement.
-        // Spec: http://www.w3.org/TR/SVG11/single-page.html#paths-InterfaceSVGAnimatedPathData
-        Object.defineProperty(SVGPathElement.prototype, "pathSegList", {
-            get: function() {
-                if (!this._pathSegList)
-                    this._pathSegList = new SVGPathSegList(this);
-                return this._pathSegList;
-            },
-            enumerable: true
-        });
-        // FIXME: The following are not implemented and simply return SVGPathElement.pathSegList.
-        Object.defineProperty(SVGPathElement.prototype, "normalizedPathSegList", { get: function() { return this.pathSegList; }, enumerable: true });
-        Object.defineProperty(SVGPathElement.prototype, "animatedPathSegList", { get: function() { return this.pathSegList; }, enumerable: true });
-        Object.defineProperty(SVGPathElement.prototype, "animatedNormalizedPathSegList", { get: function() { return this.pathSegList; }, enumerable: true });
 
         // Process any pending mutations to the path element and update the list as needed.
         // This should be the first call of all public functions and is needed because
@@ -811,5 +802,20 @@
 
             return builder.pathSegList;
         }
+
+        // Add the pathSegList accessors to SVGPathElement.
+        // Spec: http://www.w3.org/TR/SVG11/single-page.html#paths-InterfaceSVGAnimatedPathData
+        Object.defineProperty(SVGPathElement.prototype, "pathSegList", {
+            get: function() {
+                if (!this._pathSegList)
+                    this._pathSegList = new SVGPathSegList(this);
+                return this._pathSegList;
+            },
+            enumerable: true
+        });
+        // FIXME: The following are not implemented and simply return SVGPathElement.pathSegList.
+        Object.defineProperty(SVGPathElement.prototype, "normalizedPathSegList", { get: function() { return this.pathSegList; }, enumerable: true });
+        Object.defineProperty(SVGPathElement.prototype, "animatedPathSegList", { get: function() { return this.pathSegList; }, enumerable: true });
+        Object.defineProperty(SVGPathElement.prototype, "animatedNormalizedPathSegList", { get: function() { return this.pathSegList; }, enumerable: true });
     }
 }());
